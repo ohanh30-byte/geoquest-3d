@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#f59e0b">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sertifikat Kelulusan - GeoQuest 3D</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body { background-color: #1e293b; }
+        .cert-container { 
+            background: url('https://www.transparenttextures.com/patterns/stardust.png'), linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        }
+        .gold-text {
+            background: linear-gradient(to right, #bf953f, #fcf6ba, #b38728, #fbf5b7, #aa771c);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        /* Mode cetak agar rapi jadi A4 Landscape */
+        @media print {
+            body { background: white; -webkit-print-color-adjust: exact; }
+            .no-print { display: none !important; }
+            .cert-wrapper { box-shadow: none !important; margin: 0 !important; width: 100% !important; height: 100vh !important; display: flex; align-items: center; justify-content: center;}
+            @page { size: A4 landscape; margin: 0; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="mb-6 flex gap-4 no-print z-10">
+        <a href="index.html" class="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-full font-bold shadow-lg transition flex items-center gap-2 border border-slate-500">
+            ⬅️ Kembali ke Gerbang
+        </a>
+        <button onclick="window.print()" class="bg-amber-500 hover:bg-amber-600 text-slate-900 px-6 py-2 rounded-full font-bold shadow-lg transition flex items-center gap-2 border border-amber-400">
+            🖨️ Cetak / Simpan PDF
+        </button>
+    </div>
+
+    <div class="cert-wrapper w-full max-w-5xl">
+        <div class="cert-container border-[12px] border-amber-500 p-2 md:p-4 rounded-2xl shadow-2xl relative w-full aspect-[1.414/1] flex items-center justify-center text-center overflow-hidden">
+            
+            <div class="absolute top-0 left-0 w-16 h-16 border-t-8 border-l-8 border-amber-600 m-4 rounded-tl-xl"></div>
+            <div class="absolute top-0 right-0 w-16 h-16 border-t-8 border-r-8 border-amber-600 m-4 rounded-tr-xl"></div>
+            <div class="absolute bottom-0 left-0 w-16 h-16 border-b-8 border-l-8 border-amber-600 m-4 rounded-bl-xl"></div>
+            <div class="absolute bottom-0 right-0 w-16 h-16 border-b-8 border-r-8 border-amber-600 m-4 rounded-br-xl"></div>
+
+            <div class="border-2 border-dashed border-amber-300 w-full h-full p-8 md:p-12 flex flex-col justify-center rounded-xl bg-white/50 backdrop-blur-sm z-10">
+                
+                <h3 class="text-amber-600 font-bold tracking-[0.2em] uppercase text-sm md:text-lg mb-2">Penghargaan Ekselensi</h3>
+                <h1 class="text-4xl md:text-6xl font-black uppercase mb-8 gold-text drop-shadow-sm tracking-tight" style="font-family: 'Times New Roman', Times, serif;">Sertifikat Kelulusan</h1>
+                
+                <p class="text-slate-600 font-medium text-sm md:text-lg mb-4">Dengan bangga diberikan kepada:</p>
+                
+                <h2 id="cert-name" class="text-3xl md:text-5xl font-bold text-slate-800 mb-6 uppercase border-b-2 border-slate-300 inline-block px-10 pb-2 italic min-h-[50px] min-w-[300px]">
+                </h2>
+
+                <p class="text-slate-600 font-medium text-sm md:text-base leading-relaxed max-w-2xl mx-auto mb-10">
+                    Karena telah berhasil menaklukkan ekspedisi <strong>GeoQuest 3D</strong> dengan luar biasa. 
+                    Penjelajah telah mengumpulkan 40 Bintang Kemampuan Kognisi Spasial dan membuktikan dirinya sebagai <strong class="text-amber-600">Pilot Akrobatik Ruang</strong> sejati.
+                </p>
+
+                <div class="flex justify-between items-end w-full max-w-3xl mx-auto mt-4 px-4 md:px-12">
+                    <div class="text-center">
+                        <div class="text-4xl mb-2">👩‍🏫</div>
+                        <div class="w-32 md:w-48 border-b-2 border-slate-800 mb-1"></div>
+                        <p class="font-bold text-slate-800 text-xs md:text-sm">Bu Geo AI</p>
+                        <p class="text-[10px] text-slate-500 uppercase tracking-widest">Asisten Virtual Empatik</p>
+                    </div>
+
+                    <div class="text-5xl md:text-7xl drop-shadow-xl animate-pulse -translate-y-4">🏆</div>
+
+                    <div class="text-center">
+                        <div class="h-10 mb-2"></div>
+                        <div class="w-32 md:w-48 border-b-2 border-slate-800 mb-1"></div>
+                        <p class="font-bold text-slate-800 text-xs md:text-sm">Ohan Handiyanto</p>
+                        <p class="text-[10px] text-slate-500 uppercase tracking-widest">Peneliti - SDN Sukarindik Kota Tasikmalaya</p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // EKSEKUSI INSTAN: Tarik nama dari localStorage tepat sebelum render halaman selesai
+        let studentName = localStorage.getItem('geoquest_student_name');
+        if(studentName) {
+            document.getElementById('cert-name').innerText = studentName;
+        } else {
+            document.getElementById('cert-name').innerText = "PENJELAJAH ANONIM";
+        }
+
+        // Efek Ledakan Confetti saat sertifikat dibuka!
+        function shootConfetti() {
+            var duration = 3000;
+            var end = Date.now() + duration;
+
+            (function frame() {
+                confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#fbbf24', '#38bdf8', '#34d399'] });
+                confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#fbbf24', '#38bdf8', '#34d399'] });
+                if (Date.now() < end) requestAnimationFrame(frame);
+            }());
+        }
+
+        // Delay sedikit hanya untuk confetti dan suara agar tidak macet
+        window.addEventListener('load', function() {
+            if(studentName) {
+                shootConfetti();
+                
+                // TRIK ANTI-EJA
+                let namaPanggilan = studentName.toLowerCase();
+                
+                // Pesan Suara Bangga dari Bu Geo AI
+                setTimeout(() => {
+                    if ('speechSynthesis' in window) {
+                        let utterance = new SpeechSynthesisUtterance(`Selamat ya, ${namaPanggilan}! Kamu saaaangat luar biasa. Ibu guru saaaangat bangga padamu!`);
+                        utterance.lang = 'id-ID'; 
+                        utterance.pitch = 1.5; // NADA SANGAT CERIA!
+                        utterance.rate = 1.05; // LEBIH SEMANGAT!
+                        
+                        let voices = window.speechSynthesis.getVoices();
+                        let femaleVoice = voices.find(v => v.lang.includes('id') && v.name.toLowerCase().includes('female'));
+                        if(femaleVoice) utterance.voice = femaleVoice;
+                        
+                        window.speechSynthesis.speak(utterance);
+                    }
+                }, 800);
+            }
+        });
+    </script>
+<script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                .then(registration => {
+                    console.log('ServiceWorker sukses didaftarkan dengan scope: ', registration.scope);
+                })
+                .catch(err => {
+                    console.log('ServiceWorker gagal didaftarkan: ', err);
+                });
+            });
+        }
+    </script>
+</body>
+</html>
