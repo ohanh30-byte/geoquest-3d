@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#f59e0b">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoQuest 3D - Pos 1: Sang Pelipat Ajaib</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        canvas { display: block; border-radius: 1.5rem; width: 100% !important; height: 100% !important; }
+        .glass { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen flex flex-col md:flex-row p-4 gap-4">
+    <div class="w-full h-[50vh] md:min-h-[500px] md:flex-1 relative bg-white rounded-3xl shadow-2xl overflow-hidden border-4 border-white">
+        <div id="canvas-container" class="absolute inset-0"></div>
+        <div class="absolute top-4 left-4 z-10 flex flex-col gap-2">
+            <a href="index.html" class="bg-white/90 text-slate-800 px-4 py-2 rounded-full text-xs font-bold shadow-lg border border-slate-200 hover:bg-slate-100 transition">⬅️ Kembali ke Gerbang Utama</a>
+            <a href="level2.html" id="btn-lanjut-tp" class="bg-green-500 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg border border-green-600 hover:bg-green-600 transition animate-bounce hidden">🚀 Lanjut ke Pos 2: Arsitek Ruang</a>
+            <span id="view-label" class="bg-amber-500 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg w-max">Pos 1: Membayangkan Lipatan</span>
+            <span id="shape-label" class="bg-blue-500 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg w-max">Memuat Bentuk...</span>
+        </div>
+        <div class="absolute top-4 right-4 z-10">
+            <span id="progress-badge" class="bg-yellow-400 text-slate-800 px-4 py-2 rounded-full text-xs font-bold shadow-lg border-2 border-white">⭐ 0/10 Terkumpul</span>
+        </div>
+    </div>
+    
+    <div class="w-full md:w-96 flex flex-col gap-4">
+        <div class="glass p-6 rounded-3xl shadow-xl border-t-4 border-amber-500">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center text-white text-2xl border-2 border-white shadow-md">👩‍🏫</div>
+                <div><h2 class="font-bold text-slate-800">Bu Geo AI</h2><p class="text-[10px] text-amber-600 font-bold uppercase">Asisten Virtual Empatik</p></div>
+            </div>
+            <div id="chat-bubble" class="text-slate-700 text-sm italic font-medium leading-relaxed">"Mari kita asah imajinasimu dengan jaring-jaring baru!"</div>
+        </div>
+        
+        <div class="bg-white p-6 rounded-3xl shadow-xl space-y-4">
+            <h3 class="font-bold text-center text-xs text-slate-800 leading-relaxed" id="question-text">MEMUAT PERTANYAAN...</h3>
+            <div id="options-container" class="grid grid-cols-2 gap-3 min-h-[80px]"></div>
+            <div class="flex flex-col gap-2">
+                <button id="reset-fold-btn" onclick="resetFold()" class="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs hover:bg-slate-200 transition hidden border-2 border-slate-200">👀 BUKA KEMBALI LIPATAN</button>
+                <button id="next-btn" onclick="nextLevel()" class="w-full py-3 bg-amber-500 text-white rounded-xl font-bold text-xs shadow-lg hover:bg-amber-600 transition transform hover:-translate-y-1 hidden">➡️ SOAL BERIKUTNYA</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbzh2BuLexfDG2v_yGvYuYFK_QjRROZN6qzieW0XrGaW1q5pX9k889J4vw4ktH16Y27tmA/exec";
+        function sendData(soal, status) {
+            const nama = localStorage.getItem('geoquest_student_name') || "Anonim";
+            fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ nama, tp: "TP 1", soal, status, alatBantu: "Tanpa Alat" }) }).catch(e => console.log("Offline mode"));
+        }
+
+        let scene, camera, renderer, group, pivotsToAnimate = [], currentTargetColor = "";
+        let currentLevelIdx = 0; let correctCount = parseInt(localStorage.getItem('tp1_correct_count')) || 0;
+        
+        const palette = [0xef4444, 0xf97316, 0xeab308, 0x22c55e, 0x3b82f6, 0xa855f7, 0x94a3b8];
+        const colorNames = { 0xef4444:"Merah", 0xf97316:"Oranye", 0xeab308:"Kuning", 0x22c55e:"Hijau", 0x3b82f6:"Biru", 0xa855f7:"Ungu", 0x94a3b8:"Abu-abu" };
+
+        const levelTemplates = [
+            { name: "Kubus - Salib Pusat", targetId: 5, faces: [ {id:0, w:1, h:1, hinge:null, p:null}, {id:1, w:1, h:1, hinge:'left', p:0, axis:'y', angle: Math.PI/2}, {id:2, w:1, h:1, hinge:'right', p:0, axis:'y', angle: -Math.PI/2}, {id:3, w:1, h:1, hinge:'top', p:0, axis:'x', angle: Math.PI/2}, {id:4, w:1, h:1, hinge:'bottom', p:0, axis:'x', angle: -Math.PI/2}, {id:5, w:1, h:1, hinge:'bottom', p:4, axis:'x', angle: -Math.PI/2} ] },
+            { name: "Kubus - Pola Huruf T", targetId: 5, faces: [ {id:0, w:1, h:1, hinge:null, p:null}, {id:3, w:1, h:1, hinge:'top', p:0, axis:'x', angle: Math.PI/2}, {id:1, w:1, h:1, hinge:'left', p:3, axis:'y', angle: Math.PI/2}, {id:2, w:1, h:1, hinge:'right', p:3, axis:'y', angle: -Math.PI/2}, {id:4, w:1, h:1, hinge:'bottom', p:0, axis:'x', angle: -Math.PI/2}, {id:5, w:1, h:1, hinge:'bottom', p:4, axis:'x', angle: -Math.PI/2} ] },
+            { name: "Balok - Salib Pusat", targetId: 5, faces: [ {id:0, w:2, h:1, hinge:null, p:null}, {id:1, w:1, h:1, hinge:'left', p:0, axis:'y', angle: Math.PI/2}, {id:2, w:1, h:1, hinge:'right', p:0, axis:'y', angle: -Math.PI/2}, {id:3, w:2, h:1, hinge:'top', p:0, axis:'x', angle: Math.PI/2}, {id:4, w:2, h:1, hinge:'bottom', p:0, axis:'x', angle: -Math.PI/2}, {id:5, w:2, h:1, hinge:'bottom', p:4, axis:'x', angle: -Math.PI/2} ] }
+        ];
+
+        function speak(text, callback) {
+            document.getElementById('chat-bubble').innerText = `"${text}"`;
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); 
+                let utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'id-ID'; utterance.rate = 1.05; utterance.pitch = 1.5; 
+                let voices = window.speechSynthesis.getVoices();
+                let femaleVoice = voices.find(v => v.lang.includes('id') && v.name.toLowerCase().includes('female'));
+                if(femaleVoice) utterance.voice = femaleVoice;
+                utterance.onend = () => { if(callback) callback(); };
+                window.speechSynthesis.speak(utterance);
+            } else { if(callback) setTimeout(callback, 2000); }
+        }
+
+        function updateProgressBadge() {
+            let badge = document.getElementById('progress-badge');
+            let btnLanjut = document.getElementById('btn-lanjut-tp');
+            if(correctCount >= 10) {
+                badge.innerText = "⭐ POS SELESAI!";
+                badge.classList.remove('bg-yellow-400', 'text-slate-800'); badge.classList.add('bg-green-500', 'text-white', 'animate-pulse');
+                btnLanjut.classList.remove('hidden'); 
+            } else {
+                badge.innerText = `⭐ ${correctCount}/10 Terkumpul`;
+                btnLanjut.classList.add('hidden');
+            }
+        }
+
+        function init() {
+            updateProgressBadge();
+            scene = new THREE.Scene(); scene.background = new THREE.Color(0xf1f5f9);
+            camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000); camera.position.set(0, 9, 13); camera.lookAt(0,0,0);
+            renderer = new THREE.WebGLRenderer({antialias:true}); renderer.setSize(500,500); 
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.9)); 
+            let l1 = new THREE.DirectionalLight(0xffffff, 0.5); l1.position.set(5,10,7); scene.add(l1);
+            group = new THREE.Group(); scene.add(group); buildLevel(); animate();
+            window.addEventListener('resize', onResize); onResize();
+        }
+        function onResize() { let box = document.getElementById('canvas-container'); renderer.setSize(box.clientWidth, box.clientHeight); camera.aspect = box.clientWidth/box.clientHeight; camera.updateProjectionMatrix(); }
+
+        function buildLevel() {
+            gsap.killTweensOf(camera.position); pivotsToAnimate.forEach(a => gsap.killTweensOf(a.piv.rotation));
+            group.clear(); pivotsToAnimate = []; 
+            document.getElementById('reset-fold-btn').classList.add('hidden'); document.getElementById('next-btn').classList.add('hidden');
+            
+            let template = levelTemplates[currentLevelIdx % levelTemplates.length];
+            document.getElementById('shape-label').innerText = template.name;
+            let faces = JSON.parse(JSON.stringify(template.faces)); 
+            let colors = [...palette].sort(()=>Math.random()-0.5).slice(0,6);
+            faces.forEach((f, i) => f.c = colors[i]); 
+
+            let questionMode = (currentLevelIdx % 2 === 0) ? "TUTUP" : "ALAS";
+            let givenFace, targetFace;
+
+            if (questionMode === "TUTUP") {
+                givenFace = faces[0]; targetFace = faces.find(f => f.id === template.targetId); 
+                document.getElementById('question-text').innerHTML = `JIKA BERALASKAN WARNA <span class="text-amber-500">${colorNames[givenFace.c].toUpperCase()}</span>, WARNA APA <span class="text-blue-500">TUTUP ATASNYA</span>?`;
+            } else {
+                givenFace = faces.find(f => f.id === template.targetId); targetFace = faces[0]; 
+                document.getElementById('question-text').innerHTML = `JIKA TUTUP ATASNYA WARNA <span class="text-amber-500">${colorNames[givenFace.c].toUpperCase()}</span>, WARNA APA <span class="text-blue-500">ALAS BAWAHNYA</span>?`;
+            }
+
+            currentTargetColor = colorNames[targetFace.c]; 
+            
+            let wrongColors = faces.filter(f => f.id !== givenFace.id && f.id !== targetFace.id).map(f => f.c);
+            wrongColors = wrongColors.sort(()=>Math.random()-0.5).slice(0, 3);
+            let opts = [...wrongColors, targetFace.c].sort(()=>Math.random()-0.5);
+            
+            let container = document.getElementById('options-container'); container.innerHTML = '';
+            opts.forEach(c => {
+                let b = document.createElement('button'); 
+                b.className = "p-3 border-2 rounded-2xl bg-white font-bold flex items-center gap-2 shadow-sm hover:bg-amber-50 hover:border-amber-400 transition-colors";
+                b.innerHTML = `<div class='w-5 h-5 rounded-full border border-slate-300' style='background-color:#${c.toString(16).padStart(6, '0')}'></div> ${colorNames[c]}`;
+                b.onclick = function() { check(c === targetFace.c, colorNames[c], colorNames[givenFace.c], template.name, this, questionMode); };
+                container.appendChild(b);
+            });
+
+            let objs = {}; faces.forEach(f => {
+                const mesh = new THREE.Mesh(new THREE.PlaneGeometry(f.w, f.h), new THREE.MeshLambertMaterial({color:f.c, side:THREE.DoubleSide}));
+                mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), new THREE.LineBasicMaterial({color:0x000, linewidth: 2})));
+                if(f.p === null) { mesh.rotation.x = -Math.PI/2; group.add(mesh); objs[f.id]={mesh, data:f}; } else {
+                    let p = objs[f.p]; let piv = new THREE.Group(); let pw = p.data.w, ph = p.data.h;
+                    if(f.hinge==='left') piv.position.set(-pw/2, 0, 0); if(f.hinge==='right') piv.position.set(pw/2, 0, 0);
+                    if(f.hinge==='top') piv.position.set(0, ph/2, 0); if(f.hinge==='bottom') piv.position.set(0, -ph/2, 0);
+                    p.mesh.add(piv); 
+                    if(f.hinge==='left') mesh.position.set(-f.w/2, 0, 0); if(f.hinge==='right') mesh.position.set(f.w/2, 0, 0);
+                    if(f.hinge==='top') mesh.position.set(0, f.h/2, 0); if(f.hinge==='bottom') mesh.position.set(0, -f.h/2, 0);
+                    piv.add(mesh); objs[f.id]={mesh, data:f}; pivotsToAnimate.push({piv, axis:f.axis, angle:f.angle});
+                }
+            });
+            
+            gsap.to(camera.position, {y:9, z:13, duration:1, onUpdate:()=>camera.lookAt(0,0,0)});
+            speak("Ayo, bayangkan jaring-jaring ini melipat menjadi bangun ruang secara perlahan.", null);
+        }
+
+        function check(win, cName, givenColorName, tName, btnElement, qMode) {
+            sendData(tName + " (" + qMode + ")", win?"Benar":"Salah");
+            let namaPanggilan = (localStorage.getItem('geoquest_student_name') || "").toLowerCase();
+            
+            if (win) {
+                correctCount++; localStorage.setItem('tp1_correct_count', correctCount);
+                if(correctCount >= 10) localStorage.setItem('geoquest_tp1_done', 'true');
+                updateProgressBadge(); document.getElementById('options-container').style.pointerEvents='none';
+                btnElement.classList.remove('hover:bg-amber-50', 'hover:border-amber-400');
+                btnElement.classList.add('bg-green-100', 'border-green-500', 'text-green-700'); 
+                
+                let txt = correctCount >= 10 ? `Selamat, ${namaPanggilan}! Kamu mengumpulkan 10 Bintang! Silakan klik tombol Lanjut.` : `Luar biasa, ${namaPanggilan}! Tebakan lipatanmu akurat! Mari kita buktikan.`;
+
+                speak(txt, () => {
+                    pivotsToAnimate.forEach((a,i) => gsap.to(a.piv.rotation, {[a.axis]:a.angle, duration:1.5, delay:i*0.1}));
+                    gsap.to(camera.position, {y:5, z:11, duration:2, onUpdate:()=>camera.lookAt(0,0.5,0), onComplete:()=> {
+                        if(correctCount < 10) speak(qMode === "TUTUP" ? `Menutup tepat di atas warna ${givenColorName}!` : `Alasnya adalah ${cName}!`);
+                        document.getElementById('reset-fold-btn').classList.remove('hidden'); document.getElementById('next-btn').classList.remove('hidden');
+                    }});
+                });
+            } else {
+                btnElement.disabled = true; btnElement.classList.remove('hover:bg-amber-50', 'hover:border-amber-400');
+                btnElement.classList.add('opacity-50', 'bg-red-50', 'border-red-300', 'cursor-not-allowed'); 
+                
+                // LOGIKA SALAH: MEMBERITAHU JAWABAN BENAR DAN ALASANNYA
+                let txt = `Hampir saja! Jawaban yang tepat adalah warna ${currentTargetColor}, karena sisi tutup dan alas tidak akan pernah bersentuhan. Ayo klik warna ${currentTargetColor} untuk membuktikannya!`;
+                speak(txt, null);
+            }
+        }
+        
+        function resetFold() { 
+            pivotsToAnimate.slice().reverse().forEach((a,i) => gsap.to(a.piv.rotation, {[a.axis]:0, duration:1, delay:i*0.1}));
+            gsap.to(camera.position, {y:9, z:13, duration:1.5, onUpdate:()=>camera.lookAt(0,0,0), onComplete:()=> {
+                document.getElementById('options-container').style.pointerEvents='none';
+                document.getElementById('reset-fold-btn').classList.add('hidden'); document.getElementById('next-btn').classList.remove('hidden'); 
+            }});
+        }
+        
+        function nextLevel() { currentLevelIdx++; buildLevel(); document.getElementById('options-container').style.pointerEvents='auto'; }
+        function animate() { requestAnimationFrame(animate); group.rotation.y += 0.005; renderer.render(scene, camera); }
+        init();
+    </script>
+</body>
+</html>
